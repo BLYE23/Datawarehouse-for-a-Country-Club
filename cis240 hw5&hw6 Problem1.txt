@@ -1,0 +1,52 @@
+Use cc;
+
+SELECT Member_Number, Membership_type, Year_Joined
+FROM memberships;
+
+DROP TABLE IF EXISTS membership_long_temp;
+ 
+CREATE TABLE membership_long_temp AS
+(SELECT memberships.Member_Number, Membership_type, Year_Joined, Category, Description, Date, Revenue
+FROM memberships
+right join
+(
+	SELECT Member_Number, "dinner" as Category, Service AS Description, str_to_date(date,"%m/%d/%Y") as Date, Total AS Revenue
+	FROM dining
+	Group By Member_Number,Date,Description
+	union
+	SELECT Member_Number, "golf" as Category, Description, str_to_date(date,"%m/%d/%Y") as Date, Amount AS Revenue
+	FROM golf
+	GROUP BY Member_Number,Date,Description
+    union
+    SELECT Member_Number, "pool" as Category, Description, str_to_date(date,"%m/%d/%Y") as Date, Amount AS Revenue
+	FROM pool
+	GROUP BY Member_Number,Date,Description
+    union
+    SELECT Member_Number, "tennis" as Category, Description, str_to_date(date,"%m/%d/%Y") as Date, Amount AS Revenue
+	FROM tennis
+	GROUP BY Member_Number,Date,Description
+    union
+    SELECT Member_Number, "other" as Category, Description, "none" as Date, Amount AS Revenue
+	FROM other
+	GROUP BY Member_Number,Date,Description) AS revenue
+    on memberships.Member_Number = revenue.Member_Number
+	left join members on memberships.Member_Number = members.Member_Number
+GROUP BY Member_Number,Date,Description
+ORDER BY member_number);
+
+
+DROP TABLE IF EXISTS membership_long;
+CREATE TABLE membership_long as
+(SELECT db.Member_Number, Membership_type, Year_Joined, Category, Description, db.Date, Revenue,
+CASE WHEN `Private Function` is null then 0 WHEN `Private Function` = 0 then 0 ELSE 1 END AS `Private Function`,
+CASE WHEN `4th of July` is null then 0 WHEN `4th of July` = 0 then 0 ELSE 1 END AS `4th of July`,
+CASE WHEN Thanksgiving is null then 0 WHEN Thanksgiving = 0 then 0 ELSE 1 END AS Thanksgiving,
+CASE WHEN `Easter Brunch` is null then 0 WHEN `Easter Brunch` = 0 then 0 ELSE 1 END AS `Easter Brunch`,
+Case WHEN one.Member_Number is null then 0 else 1 END AS promoone,
+CASE WHEN two.Member_Number is null then 0 else 1 END AS promotwo
+FROM membership_long_temp as db 
+	left join special on db.Member_Number = special.Member_Number
+    left join promoone as one on db.Member_Number = one.Member_Number
+    left join promotwo as two on db.Member_Number = two.Member_Number
+GROUP BY member_number, description,Date
+ORDER BY member_number);
